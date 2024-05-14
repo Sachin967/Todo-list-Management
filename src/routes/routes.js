@@ -4,19 +4,23 @@ import {
      deleteTodo,
      downloadTodo,
      filterTodo,
-     getAllTodo,
+     // filterTodo,
+     getAllTodo,    
      getTodo,
      updateTodo,
      uploadTodo,
-} from '../controller/controller'
+} from '../controller/controller.js'
+import upload from '../multer.js'
 
 const router = express.Router()
 
 router.get('/todos', getAllTodo)
 router.get('/todos/:id', getTodo)
 router.post('/todos', addTodo)
-router.put('/todos/:id', updateTodo)
+router.put('/todos/:id',  updateTodo)
 router.delete('/todos/:id', deleteTodo)
-router.post('/todos/upload', uploadTodo)
-router.get('/todos/download', downloadTodo)
-router.get('/todos/filter', filterTodo)
+router.post('/todos/upload', upload.single('csvFile'), uploadTodo)
+router.get('/todo/download', downloadTodo)
+router.get('/todo/filter', filterTodo)
+
+export default router

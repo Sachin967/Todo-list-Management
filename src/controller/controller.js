@@ -1,5 +1,6 @@
-import Todo from '../db/todoSchema'
+import Todo from '../db/todoSchema.js'
 import csv from 'csv-parser'
+import fs from 'fs'
 const getAllTodo = async (req, res) => {
      try {
           const todos = await Todo.find()
@@ -24,7 +25,8 @@ const getTodo = async (req, res) => {
 
 const addTodo = async (req, res) => {
      try {
-          const { description, status } = req.body
+          let { description, status } = req.body
+          status = status.toLowerCase()
           if (!description || !status) {
                return res.status(400).json({ error: 'Both description and status are required' })
           }
@@ -32,6 +34,7 @@ const addTodo = async (req, res) => {
           await newTodo.save()
           return res.status(201).json({ message: 'Todo created successfully', todo: newTodo })
      } catch (error) {
+          console.error(error)
           return res.status(500).json({ error: 'Internal Server Error' })
      }
 }
@@ -77,29 +80,61 @@ const uploadTodo = async (req, res) => {
           const todoItems = []
 
           fs.createReadStream(req.file.path)
-               .pipe(csv())
+               .pipe(csv({ separator: ':' }))
                .on('data', (row) => {
-                    // Assuming CSV has 'description' and 'status' columns
+                    const description = row['Buy groceries']
+                    const status = row['pending']
+                    
                     const todoItem = new Todo({
-                         description: row.description,
-                         status: row.status,
+                         description: description,
+                         status: status,
                     })
                     todoItems.push(todoItem)
                })
                .on('end', async () => {
-                    // Save todo items to the database
-                    await Todo.insertMany(todoItems)
-                    res.send('CSV file uploaded successfully')
+                    try {
+                         await Todo.insertMany(todoItems)
+                         console.log('CSV file uploaded successfully')
+                         res.json({ message: 'CSV file uploaded successfully' })
+                    } catch (error) {
+                         console.error('Error saving todo items:', error)
+                         res.status(500).json({ error: 'Error saving todo items' })
+                    }
                })
-     } catch (error) {}
+     } catch (error) {
+          console.error('Error parsing CSV file:', error)
+          res.status(500).json({ error: 'Internal Server Error' })
+     }
 }
+
 const downloadTodo = async (req, res) => {
-     const todos = await Todo.find()
-     const csvData = todos.map((todo) => `${todo.description},${todo.status}`).join('\n')
+     try {
+          const todos = await Todo.find()
+          const csvData = todos.map((todo) => `${todo.description},${todo.status}`).join('\n')
+          res.set('Content-Type', 'text/csv')
+          res.attachment('todos.csv')
+          res.send(csvData)
+     } catch (error) {
+          console.error('Error downloading todos:', error)
+          res.status(500).json({ error: 'Internal Server Error' })
+     }
+}
+const filterTodo = async (req, res) => {
+     try {
+          const { status } = req.query
+          let todos
 
-     res.set('Content-Type', 'text/csv')
-     res.attachment('todos.csv')
-     res.send(csvData)
+          if (status) {
+               todos = await Todo.find({ status })
+          } else {
+               todos = await Todo.find()
+          }
+
+          res.status(200).json(todos)
+     } catch (error) {
+          console.error('Error fetching todos:', error)
+          res.status(500).json({ error: 'Internal Server Error' })
+     }
 }
 
-export { getAllTodo, getTodo, addTodo, updateTodo, deleteTodo, uploadTodo, downloadTodo }
+export { getAllTodo, getTodo, addTodo, updateTodo, deleteTodo, uploadTodo, downloadTodo,filterTodo }
